@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: springBootTest
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: 1106288595@qq.com
+    password: bssdngcdgjjtijic  # ?????????
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+server:
+  address: 0.0.0.0
+
