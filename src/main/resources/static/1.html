@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Candlestick Chart</title>
     <!-- 引入 Chart.js 和金融图表插件 -->
@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/date-fns"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <!-- 在 head 区域引入 annotation 插件 -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.4.0"></script>
 
     <style>
         /* 美化下拉框和整体布局 */
@@ -21,7 +23,7 @@
             padding: 12px;
             background: #f5f5f5;
             border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
 
         .control-group {
@@ -66,7 +68,7 @@
         #price-label {
             position: absolute;
             display: none;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0, 0, 0, 0.7);
             color: white;
             padding: 4px 8px;
             border-radius: 4px;
@@ -130,7 +132,7 @@
     }
 
     async function fetchCandlestickData(startTime = null, endTime = null) {
-        const { symbol, interval, limit } = getChartParams();
+        const {symbol, interval, limit} = getChartParams();
         let url = `/api/candlesticks?symbol=${symbol}&interval=${interval}&limit=${limit}`;
         if (startTime) url += `&startTime=${startTime}`;
         if (endTime) url += `&endTime=${endTime}`;
@@ -168,7 +170,17 @@
                 datasets: [{
                     label: `${getChartParams().symbol}`,
                     data: candlestickData,
-                    borderColor: 'rgba(0, 0, 0, 0.5)',
+                    // 设置蜡烛颜色
+                    color: {
+                        up: '#ff2c2c',    // 正红
+                        down: '#00c42a',  // 正绿
+                        unchanged: '#888888'
+                    },
+                    borderColor: {
+                        up: '#ff2c2c',
+                        down: '#00c42a',
+                        unchanged: '#888888'
+                    },
                     borderWidth: 1,
                     barPercentage: 1.0,
                     categoryPercentage: 1.0
@@ -177,7 +189,7 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                animation: { duration: 0 },
+                animation: {duration: 0},
                 interaction: {
                     mode: 'index',
                     intersect: false
@@ -202,26 +214,26 @@
                             maxRotation: 0,
                             minRotation: 0
                         },
-                        grid: { display: false },
+                        grid: {display: false},
                         offset: false,
                         bounds: 'data',
-                        title: { display: true, text: 'Time' }
+                        title: {display: true, text: 'Time'}
                     },
                     y: {
                         ticks: {
-                            callback: function(value) {
+                            callback: function (value) {
                                 return value.toFixed(4);
                             }
                         },
-                        title: { display: true, text: 'Price' }
+                        title: {display: true, text: 'Price'}
                     }
                 },
                 plugins: {
-                    legend: { display: false },
+                    legend: {display: false},
                     tooltip: {
                         enabled: true,
                         callbacks: {
-                            label: function(context) {
+                            label: function (context) {
                                 const data = context.raw;
                                 return [
                                     `开: ${data.o}`,
@@ -289,7 +301,7 @@
         horizontalLine.style.display = 'block';
 
         const price = getYValueFromPixel(y).toFixed(4);
-        priceLabel.innerHTML = `￥${price}`;
+        priceLabel.innerHTML = `$${price}`;
         priceLabel.style.left = `${x + 10}px`;
         priceLabel.style.top = `${y - 20}px`;
         priceLabel.style.display = 'block';
@@ -308,32 +320,328 @@
         priceLabel.style.display = 'none';
     });
 
-    canvas.addEventListener('click', () => {
-        if (priceLabel.style.display === 'none') return;
+    // canvas.addEventListener('click', () => {
+    //     if (priceLabel.style.display === 'none') return;
+    //
+    //     const price = priceLabel.dataset.price;
+    //     const symbol = document.getElementById("symbol").value;
+    //
+    //     const confirmCreate = confirm(`您点击的价格为：${price}\n是否设置价格提醒？`);
+    //     if (confirmCreate) {
+    //         const threshold = prompt("请输入提醒阈值:", price);
+    //
+    //         if (threshold !== null && !isNaN(threshold)) {
+    //             fetch(`/api/reminder/${symbol}?threshold=${threshold}`, {
+    //                 method: 'GET'
+    //             }).then(response => {
+    //                 if (response.ok) {
+    //                     alert("提醒任务已提交！");
+    //                 } else {
+    //                     alert("提交失败，请稍后再试。");
+    //                 }
+    //             }).catch(error => {
+    //                 console.error('Error:', error);
+    //                 alert("网络错误，请检查连接。");
+    //             });
+    //         }
+    //     }
+    // });
 
-        const price = priceLabel.dataset.price;
+
+    // 右键菜单 DOM
+    const customMenu = document.createElement('div');
+    customMenu.id = 'custom-context-menu';
+    customMenu.style.position = 'absolute';
+    customMenu.style.display = 'none';
+    customMenu.style.background = '#fff';
+    customMenu.style.border = '1px solid #ccc';
+    customMenu.style.borderRadius = '4px';
+    customMenu.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    customMenu.style.zIndex = 1000;
+    customMenu.innerHTML = `
+  <div id="set-reminder" style="padding:8px 16px;cursor:pointer;">设置价格提醒</div>
+   <div id="draw-redline" style="padding:8px 16px;cursor:pointer;">划红线</div>
+  <div id="long-action" style="padding:8px 16px;cursor:pointer;">做多</div>
+  <div id="short-action" style="padding:8px 16px;cursor:pointer;">做空</div>
+`;
+    document.body.appendChild(customMenu);
+
+    let rightClickPrice = null;
+
+    // 右键事件
+    canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        updateCrosshair(x, y);
+
+        // 记录当前价格
+        rightClickPrice = priceLabel.dataset.price;
+
+        // 显示自定义菜单
+        customMenu.style.left = `${e.pageX}px`;
+        customMenu.style.top = `${e.pageY}px`;
+        customMenu.style.display = 'block';
+    });
+
+    // 点击菜单项
+    document.getElementById('set-reminder').onclick = function () {
+        customMenu.style.display = 'none';
+        if (!rightClickPrice) return;
         const symbol = document.getElementById("symbol").value;
+        const threshold = prompt("请输入提醒阈值:", rightClickPrice);
+        if (threshold !== null && !isNaN(threshold)) {
+            fetch(`/api/reminder/${symbol}?threshold=${threshold}`, {
+                method: 'GET'
+            }).then(response => {
+                if (response.ok) {
+                    alert("提醒任务已提交！");
+                } else {
+                    alert("提交失败，请稍后再试。");
+                }
+            }).catch(error => {
+                alert("网络错误，请检查连接。");
+            });
+        }
+    };
 
-        const confirmCreate = confirm(`您点击的价格为：${price}\n是否设置价格提醒？`);
-        if (confirmCreate) {
-            const threshold = prompt("请输入提醒阈值:", price);
 
-            if (threshold !== null && !isNaN(threshold)) {
-                fetch(`/api/reminder/${symbol}?threshold=${threshold}`, {
-                    method: 'GET'
-                }).then(response => {
-                    if (response.ok) {
-                        alert("提醒任务已提交！");
-                    } else {
-                        alert("提交失败，请稍后再试。");
-                    }
-                }).catch(error => {
-                    console.error('Error:', error);
-                    alert("网络错误，请检查连接。");
-                });
+    let reminderLine = null;
+
+    // 绘制提醒线
+    function drawReminderLine(price) {
+        reminderLine = parseFloat(price);
+        chart.options.plugins.annotation = {
+            type: 'line',
+            yMin: reminderLine,
+            yMax: reminderLine,
+            borderColor: '#2196f3',
+            borderWidth: 2,
+            borderDash: [6, 6],
+            label: {
+                enabled: true,
+                content: `提醒价: ${reminderLine.toFixed(4)}`,
+                position: 'end',
+                backgroundColor: '#2196f3',
+                color: 'white'
             }
+        };
+        chart.update();
+    }
+
+    // 设置提醒时调用
+    document.getElementById('set-reminder').onclick = function () {
+        customMenu.style.display = 'none';
+        if (!rightClickPrice) return;
+        const symbol = document.getElementById("symbol").value;
+        const threshold = prompt("请输入提醒阈值:", rightClickPrice);
+        if (threshold !== null && !isNaN(threshold)) {
+            drawReminderLine(threshold); // 画线
+            fetch(`/api/reminder/${symbol}?threshold=${threshold}`, {
+                method: 'GET'
+            }).then(response => {
+                if (response.ok) {
+                    alert("提醒任务已提交！");
+                } else {
+                    alert("提交失败，请稍后再试。");
+                }
+            }).catch(error => {
+                alert("网络错误，请检查连接。");
+            });
+        }
+    };
+
+
+    // 点击其他地方关闭菜单
+    document.addEventListener('click', () => {
+        customMenu.style.display = 'none';
+    });
+
+
+    // 2. 绘制水平线的函数
+    function drawProfitLossLines(basePrice, type) {
+        basePrice = parseFloat(basePrice);
+        let profit, loss;
+        if (type === 'long') {
+            profit = basePrice * 1.015;
+            loss = basePrice * 0.99;
+        } else {
+            profit = basePrice * 0.985;
+            loss = basePrice * 1.01;
+        }
+        chart.options.plugins.annotation = {
+            annotations: {
+                // 盈利区间背景（淡绿色）
+                profitBox: {
+                    type: 'box',
+                    yMin: Math.min(basePrice, profit),
+                    yMax: Math.max(basePrice, profit),
+                    backgroundColor: 'rgba(0,196,42,0.12)', // 淡绿色
+                    borderWidth: 0
+                },
+                // 损失区间背景（淡红色）
+                lossBox: {
+                    type: 'box',
+                    yMin: Math.min(basePrice, loss),
+                    yMax: Math.max(basePrice, loss),
+                    backgroundColor: 'rgba(255,44,44,0.12)', // 淡红色
+                    borderWidth: 0
+                },
+                entryLine: {
+                    type: 'line',
+                    yMin: basePrice,
+                    yMax: basePrice,
+                    borderColor: 'black',
+                    borderWidth: 0.5,
+                    borderDash: [8, 6],
+                    label: {
+                        enabled: true,
+                        content: `开仓价: ${basePrice.toFixed(4)}`,
+                        position: 'end',
+                        backgroundColor: 'black',
+                        color: 'white'
+                    }
+                },
+                profitLine: {
+                    type: 'line',
+                    yMin: profit,
+                    yMax: profit,
+                    borderColor: 'green',
+                    borderWidth: 0.5,
+                    borderDash: [8, 6],
+                    label: {
+                        enabled: true,
+                        content: `盈利线: ${profit.toFixed(4)}`,
+                        position: 'end',
+                        backgroundColor: 'green',
+                        color: 'white'
+                    }
+                },
+                lossLine: {
+                    type: 'line',
+                    yMin: loss,
+                    yMax: loss,
+                    borderColor: 'red',
+                    borderWidth: 0.5,
+                    borderDash: [8, 6],
+                    label: {
+                        enabled: true,
+                        content: `止损线: ${loss.toFixed(4)}`,
+                        position: 'end',
+                        backgroundColor: 'red',
+                        color: 'white'
+                    }
+                }
+            }
+        };
+        chart.update();
+    }
+
+    // 3. 绑定事件
+    document.getElementById('long-action').onclick = function () {
+        customMenu.style.display = 'none';
+        if (!rightClickPrice) return;
+        drawProfitLossLines(rightClickPrice, 'long');
+    };
+    document.getElementById('short-action').onclick = function () {
+        customMenu.style.display = 'none';
+        if (!rightClickPrice) return;
+        drawProfitLossLines(rightClickPrice, 'short');
+    };
+
+
+    let isDraggingEntryLine = false;
+
+    // 判断鼠标是否点在开仓价线上
+    function isOnEntryLine(mouseY) {
+        if (!chart || !chart.options.plugins.annotation?.annotations?.entryLine) return false;
+        const entryPrice = chart.options.plugins.annotation.annotations.entryLine.yMin;
+        const scaleY = chart.scales.y;
+        const entryY = scaleY.getPixelForValue(entryPrice);
+        return Math.abs(mouseY - entryY) < 8; // 8像素容差
+    }
+
+    // 监听 mousedown
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        if (isOnEntryLine(y)) {
+            isDraggingEntryLine = true;
+            document.body.style.cursor = 'ns-resize';
         }
     });
+
+    // 监听 mousemove
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        if (isDraggingEntryLine) {
+            const newPrice = getYValueFromPixel(y);
+            rightClickPrice = newPrice.toFixed(4);
+            // 这里假设上次是做多还是做空可用变量保存，例：lastActionType
+            drawProfitLossLines(rightClickPrice, window.lastActionType || 'long');
+        }
+    });
+
+    // 监听 mouseup
+    canvas.addEventListener('mouseup', () => {
+        if (isDraggingEntryLine) {
+            isDraggingEntryLine = false;
+            document.body.style.cursor = 'default';
+        }
+    });
+
+    // 在做多/做空时记录类型
+    document.getElementById('long-action').onclick = function () {
+        customMenu.style.display = 'none';
+        if (!rightClickPrice) return;
+        window.lastActionType = 'long';
+        drawProfitLossLines(rightClickPrice, 'long');
+    };
+    document.getElementById('short-action').onclick = function () {
+        customMenu.style.display = 'none';
+        if (!rightClickPrice) return;
+        window.lastActionType = 'short';
+        drawProfitLossLines(rightClickPrice, 'short');
+    };
+
+    // 2. 红线集合
+    let redLines = [];
+
+    // 3. 划红线函数
+    function drawRedLine(price) {
+        if (!chart.options.plugins.annotation) chart.options.plugins.annotation = {};
+        if (!chart.options.plugins.annotation.annotations) chart.options.plugins.annotation.annotations = {};
+        // 用时间戳做唯一 key
+        const id = 'redLine_' + Date.now();
+        chart.options.plugins.annotation.annotations[id] = {
+            type: 'line',
+            yMin: parseFloat(price),
+            yMax: parseFloat(price),
+            borderColor: 'red',
+            borderWidth: 1,
+            borderDash: [8, 6],
+            label: {
+                enabled: true,
+                content: `红线: ${parseFloat(price).toFixed(4)}`,
+                position: 'end',
+                backgroundColor: 'red',
+                color: 'white'
+            }
+        };
+        redLines.push(id);
+        chart.update();
+    }
+
+    // 4. 绑定菜单事件
+    document.getElementById('draw-redline').onclick = function () {
+        customMenu.style.display = 'none';
+        if (!rightClickPrice) return;
+        drawRedLine(rightClickPrice);
+    };
+
+
 </script>
 </body>
 </html>

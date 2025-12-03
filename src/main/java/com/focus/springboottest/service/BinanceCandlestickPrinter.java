@@ -7,6 +7,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.focus.springboottest.entity.Candlestick;
 import com.focus.springboottest.util.CandlestickParser;
 import com.focus.springboottest.util.EmailUtil;
+import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -25,6 +26,7 @@ import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Slf4j
 public class BinanceCandlestickPrinter {
 
     public static final String TO = "1106288595@qq.com";
@@ -153,31 +155,38 @@ public class BinanceCandlestickPrinter {
     //实时价格提醒功能
     @Async
     public void realTimePriceReminder(String symbol, String targetPrice, String stopLossPrice) throws Exception {
+        String firstPrice = getCurrentPrice(symbol);
+        BigDecimal firstPriceBigDecimal = new BigDecimal(firstPrice);
+        BigDecimal targetPriceBigDecimal = new BigDecimal(targetPrice);
+        // 比较当前价格和目标价格，如果此时的目标价格大于等于当前价格，则当目标价格小于等于当前价格时，发送邮件提醒
+        // 如果此时的目标价格小于等于当前价格，则当目标价格大于当前价格时，发送邮件提醒
+        boolean flag = firstPriceBigDecimal.compareTo(targetPriceBigDecimal) >= 0;
         while (true) {
             String currentPrice = getCurrentPrice(symbol);
-            System.out.println("当前价格：" + currentPrice);
+            log.info("当前价格：" + currentPrice + "，目标价格：" + targetPrice);
             if (currentPrice != null) {
                 BigDecimal currentPriceBigDecimal = new BigDecimal(currentPrice);
-                BigDecimal targetPriceBigDecimal = new BigDecimal(targetPrice);
-                if (currentPriceBigDecimal.compareTo(targetPriceBigDecimal) >= 0) {
-                    System.out.println("目标价格已到达！");
+                if (flag){
+                    if (currentPriceBigDecimal.compareTo(targetPriceBigDecimal) < 0) {
+                        String text = symbol + "价格已经跌到目标位置：" + targetPrice + "，请及时处理！";
 
-                    String text = symbol + "价格到达" + targetPrice + "，请及时处理！";
+                        emailUtil.sendSimpleEmail(TO, SUBJECT, text);
+                        log.info("价格已经跌到目标位置：" + targetPrice + "，请及时处理！");
+                        break;
+                    }
+                } else {
+                    if (currentPriceBigDecimal.compareTo(targetPriceBigDecimal) > 0) {
 
-                    emailUtil.sendSimpleEmail(TO, SUBJECT, text);
+                        String text = symbol + "价格已经涨到目标位置：" + targetPrice + "，请及时处理！";
 
-                    break;
+                        emailUtil.sendSimpleEmail(TO, SUBJECT, text);
+                        log.info("价格已经涨到目标位置：" + targetPrice + "，请及时处理！");
+
+                        break;
+                    }
                 }
             }
             Thread.sleep(1000);
-
-
-            /*if (currentPrice != null) {
-                double currentPriceDouble = Double.parseDouble(currentPrice);
-                if (currentPriceDouble <= stopLossPrice) {
-                    System.out.println("止损价格已触发！");
-                }
-            }*/
         }
     }
 
